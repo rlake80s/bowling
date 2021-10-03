@@ -7,7 +7,7 @@ class Tenpin
   end
 
   def roll(pins)
-    return if game_over?    
+    return if game_over?
 
     if pins == 10 && !current_frame.bonus_rolls # strike
       current_frame.first_roll = pins
@@ -26,9 +26,9 @@ class Tenpin
   def score
     score = 0
 
-    game.each_with_index do |frame, i|
+    game.each_with_index do |frame, _i|
       next if skip_frame? frame
-      
+
       score += frame.total
     end
 
@@ -47,7 +47,7 @@ class Tenpin
 
     summary['score'] = score
     summary['bonus'] = calculate_bonus
-    
+
     summary
   end
 
@@ -73,20 +73,20 @@ class Tenpin
   end
 
   def summary
-    @summary ||= (
+    @summary ||= begin
       template = {
         'score' => 0,
         'bonus' => 0,
-        'frames' => {},
+        'frames' => {}
       }
       10.times do |i|
         template['frames'][(i + 1).to_s] = {
           'first' => nil,
-          'second' => nil,
+          'second' => nil
         }
       end
       template
-    )
+    end
   end
 
   def calculate_bonus
@@ -101,13 +101,13 @@ class Tenpin
       next if no_next_game? next_game
 
       if frame.first_roll == 10 # strike
-          bonus += next_game.first_roll 
-          if next_game.second_roll # handle chance for consecutive strikes
-            bonus += next_game.second_roll
-          else
-            next if no_next_game? next_next_game
-            bonus += next_next_game.first_roll
-          end
+        bonus += next_game.first_roll
+        if next_game.second_roll # handle chance for consecutive strikes
+          bonus += next_game.second_roll
+        else
+          next if no_next_game? next_next_game
+          bonus += next_next_game.first_roll
+        end
       elsif frame.total == 10 # spare
         bonus += next_game.first_roll
       end
@@ -118,7 +118,7 @@ class Tenpin
 
   def game_over?
     return false unless last_frame?
-    
+
     if current_frame.bonus_rolls
       if current_frame.bonus_rolls == 2
         return true unless current_frame.second_roll.nil?
@@ -129,7 +129,7 @@ class Tenpin
       return true
     end
 
-    return false
+    false
   end
 
   def skip_frame?(frame)
@@ -231,23 +231,22 @@ class TenpinTest < MiniTest::Unit::TestCase
   end
 
   def test_it_returns_an_accurate_game_summary_as_the_game_progresses
-
     6.times { game.roll 5 }
 
     mid_game_hash = {
-      "score"=>40,
-      "bonus"=>10,
-      "frames"=> {
-        "1"=>{"first"=>5, "second"=>5},
-        "2"=>{"first"=>5, "second"=>5},
-        "3"=>{"first"=>5, "second"=>5},
-        "4"=>{"first"=>nil, "second"=>nil},
-        "5"=>{"first"=>nil, "second"=>nil},
-        "6"=>{"first"=>nil, "second"=>nil},
-        "7"=>{"first"=>nil, "second"=>nil},
-        "8"=>{"first"=>nil, "second"=>nil},
-        "9"=>{"first"=>nil, "second"=>nil},
-        "10"=>{"first"=>nil, "second"=>nil}
+      'score' => 40,
+      'bonus' => 10,
+      'frames' => {
+        '1' => { 'first' => 5, 'second' => 5 },
+        '2' => { 'first' => 5, 'second' => 5 },
+        '3' => { 'first' => 5, 'second' => 5 },
+        '4' => { 'first' => nil, 'second' => nil },
+        '5' => { 'first' => nil, 'second' => nil },
+        '6' => { 'first' => nil, 'second' => nil },
+        '7' => { 'first' => nil, 'second' => nil },
+        '8' => { 'first' => nil, 'second' => nil },
+        '9' => { 'first' => nil, 'second' => nil },
+        '10' => { 'first' => nil, 'second' => nil }
       }
     }
 
@@ -256,19 +255,19 @@ class TenpinTest < MiniTest::Unit::TestCase
     14.times { game.roll 1 }
 
     final_game_hash = {
-      "score"=>55,
-      "bonus"=>11,
-      "frames"=> {
-        "1"=>{"first"=>5, "second"=>5},
-        "2"=>{"first"=>5, "second"=>5},
-        "3"=>{"first"=>5, "second"=>5},
-        "4"=>{"first"=>1, "second"=>1},
-        "5"=>{"first"=>1, "second"=>1},
-        "6"=>{"first"=>1, "second"=>1},
-        "7"=>{"first"=>1, "second"=>1},
-        "8"=>{"first"=>1, "second"=>1},
-        "9"=>{"first"=>1, "second"=>1},
-        "10"=>{"first"=>1, "second"=>1}
+      'score' => 55,
+      'bonus' => 11,
+      'frames' => {
+        '1' => { 'first' => 5, 'second' => 5 },
+        '2' => { 'first' => 5, 'second' => 5 },
+        '3' => { 'first' => 5, 'second' => 5 },
+        '4' => { 'first' => 1, 'second' => 1 },
+        '5' => { 'first' => 1, 'second' => 1 },
+        '6' => { 'first' => 1, 'second' => 1 },
+        '7' => { 'first' => 1, 'second' => 1 },
+        '8' => { 'first' => 1, 'second' => 1 },
+        '9' => { 'first' => 1, 'second' => 1 },
+        '10' => { 'first' => 1, 'second' => 1 }
       }
     }
 
@@ -282,8 +281,8 @@ class TenpinTest < MiniTest::Unit::TestCase
     2.times { game.roll 1 }
 
     expected_bonus_key = {
-      "first"=>1,
-      "second"=>1,
+      'first' => 1,
+      'second' => 1
     }
 
     assert_equal expected_bonus_key, game.game_summary['frames']['11']
