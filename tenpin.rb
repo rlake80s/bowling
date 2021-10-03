@@ -1,22 +1,15 @@
-require 'pry'
-require 'pry-nav'
 require 'pp'
 
 class Tenpin
   def initialize
-    @game = [Frame.new(number: 1)]
+    @game = [Frame.new]
     @current_frame = game.last
   end
 
   def roll(pins)
-    if last_frame?
-      return if (
-        current_frame.first_roll && current_frame.second_roll
-      ) || 
-      current_frame.first_roll == 10
-    end
+    return if game_over?    
 
-    if pins == 10 # strike
+    if pins == 10 && !current_frame.bonus_rolls # strike
       current_frame.first_roll = pins
       next_frame
       return
@@ -34,9 +27,7 @@ class Tenpin
     score = 0
 
     game.each_with_index do |frame, i|
-      if frame.total.nil?
-        next
-      end
+      next if skip_frame? frame
       
       score += frame.total
     end
@@ -48,7 +39,7 @@ class Tenpin
 
   def game_summary
     game.each_with_index do |frame, i|
-      summary[(i + 1).to_s] = {
+      summary['frames'][(i + 1).to_s] = {
         'first' => frame.first_roll,
         'second' => frame.second_roll
       }
@@ -66,10 +57,15 @@ class Tenpin
   attr_accessor :current_frame
 
   def next_frame
-    if !last_frame?
-      game.push(Frame.new(number: current_frame.number + 1))
-      @current_frame = game.last
+    if last_frame?
+      if should_add_bonus_rolls?
+        bonus_rolls = current_frame.first_roll == 10 ? 2 : 1
+        game.push(Frame.new(bonus_rolls: bonus_rolls))
+      end
+    else
+      game.push(Frame.new)
     end
+    @current_frame = game.last # idempotent when not adding new frame
   end
 
   def last_frame?
@@ -81,9 +77,10 @@ class Tenpin
       template = {
         'score' => 0,
         'bonus' => 0,
+        'frames' => {},
       }
       10.times do |i|
-        template[(i + 1).to_s] = {
+        template['frames'][(i + 1).to_s] = {
           'first' => nil,
           'second' => nil,
         }
@@ -96,39 +93,63 @@ class Tenpin
     bonus = 0
 
     game.each_with_index do |frame, i|
-      if frame.total.nil?
-        next
-      end
+      next if skip_frame? frame
 
-      # binding.pry
+      next_game = game[i + 1]
+      next_next_game = game[i + 2]
+
+      next if no_next_game? next_game
 
       if frame.first_roll == 10 # strike
-        unless game[i + 1].nil? || game[i + 1].first_roll.nil?
-          bonus += game[i + 1].first_roll 
-          if game[i + 1].second_roll
-            bonus += game[i + 1].second_roll
+          bonus += next_game.first_roll 
+          if next_game.second_roll # handle chance for consecutive strikes
+            bonus += next_game.second_roll
           else
-            unless game[i + 2].nil? || game[i + 2].first_roll.nil?
-              bonus += game[i + 2].first_roll
-            end
+            next if no_next_game? next_next_game
+            bonus += next_next_game.first_roll
           end
-        end
       elsif frame.total == 10 # spare
-        unless game[i + 1].nil? || game[i + 1].first_roll.nil?
-          bonus += game[i + 1].first_roll
-        end
+        bonus += next_game.first_roll
       end
     end
 
     bonus
   end
+
+  def game_over?
+    return false unless last_frame?
+    
+    if current_frame.bonus_rolls
+      if current_frame.bonus_rolls == 2
+        return true unless current_frame.second_roll.nil?
+      elsif current_frame.bonus_rolls == 1
+        return true unless current_frame.first_roll?
+      end
+    elsif current_frame.first_roll && current_frame.second_roll
+      return true
+    end
+
+    return false
+  end
+
+  def skip_frame?(frame)
+    frame.total.nil? || frame.bonus_rolls
+  end
+
+  def no_next_game?(next_game)
+    next_game.nil? || next_game.first_roll.nil?
+  end
+
+  def should_add_bonus_rolls?
+    current_frame.total == 10 && !current_frame.bonus_rolls
+  end
 end
 
 class Frame
-  def initialize(number:)
+  def initialize(bonus_rolls: false)
     @first_roll = nil
     @second_roll = nil
-    @number = number
+    @bonus_rolls = bonus_rolls
   end
 
   def first_roll?
@@ -144,7 +165,7 @@ class Frame
   end
 
   attr_accessor :first_roll, :second_roll
-  attr_reader :number
+  attr_reader :bonus_rolls
 end
 
 require 'minitest/autorun'
@@ -155,15 +176,14 @@ class TenpinTest < MiniTest::Unit::TestCase
   end
 
   def test_it_calculates_score_correctly
-    game.roll 10
-    game.roll 10
-
+    game.roll 1
     game.roll 2
-    game.roll 5
+    game.roll 3
+    game.roll 4
 
-    15.times { game.roll 0 }
+    16.times { game.roll 0 }
 
-    assert_equal 46, game.score
+    assert_equal 10, game.score
   end
 
   def test_it_calculates_score_correctly_when_strikes_included
@@ -194,42 +214,80 @@ class TenpinTest < MiniTest::Unit::TestCase
     assert_equal 20, game.score
   end
 
+  def test_two_bonus_rolls_granted_if_final_frame_is_a_strike
+    18.times { game.roll 0 }
+
+    3.times { game.roll 10 }
+
+    assert_equal 30, game.score
+  end
+
+  def test_one_bonus_roll_granted_if_final_frame_is_a_spare
+    18.times { game.roll 0 }
+
+    3.times { game.roll 5 }
+
+    assert_equal 15, game.score
+  end
+
   def test_it_returns_an_accurate_game_summary_as_the_game_progresses
+
+    6.times { game.roll 5 }
+
     mid_game_hash = {
       "score"=>40,
       "bonus"=>10,
-      "1"=>{"first"=>5, "second"=>5},
-      "2"=>{"first"=>5, "second"=>5},
-      "3"=>{"first"=>5, "second"=>5},
-      "4"=>{"first"=>nil, "second"=>nil},
-      "5"=>{"first"=>nil, "second"=>nil},
-      "6"=>{"first"=>nil, "second"=>nil},
-      "7"=>{"first"=>nil, "second"=>nil},
-      "8"=>{"first"=>nil, "second"=>nil},
-      "9"=>{"first"=>nil, "second"=>nil},
-      "10"=>{"first"=>nil, "second"=>nil}
+      "frames"=> {
+        "1"=>{"first"=>5, "second"=>5},
+        "2"=>{"first"=>5, "second"=>5},
+        "3"=>{"first"=>5, "second"=>5},
+        "4"=>{"first"=>nil, "second"=>nil},
+        "5"=>{"first"=>nil, "second"=>nil},
+        "6"=>{"first"=>nil, "second"=>nil},
+        "7"=>{"first"=>nil, "second"=>nil},
+        "8"=>{"first"=>nil, "second"=>nil},
+        "9"=>{"first"=>nil, "second"=>nil},
+        "10"=>{"first"=>nil, "second"=>nil}
+      }
     }
 
-    6.times { game.roll 5 }
     assert_equal mid_game_hash, game.game_summary
+
+    14.times { game.roll 1 }
 
     final_game_hash = {
       "score"=>55,
       "bonus"=>11,
-      "1"=>{"first"=>5, "second"=>5},
-      "2"=>{"first"=>5, "second"=>5},
-      "3"=>{"first"=>5, "second"=>5},
-      "4"=>{"first"=>1, "second"=>1},
-      "5"=>{"first"=>1, "second"=>1},
-      "6"=>{"first"=>1, "second"=>1},
-      "7"=>{"first"=>1, "second"=>1},
-      "8"=>{"first"=>1, "second"=>1},
-      "9"=>{"first"=>1, "second"=>1},
-      "10"=>{"first"=>1, "second"=>1}
+      "frames"=> {
+        "1"=>{"first"=>5, "second"=>5},
+        "2"=>{"first"=>5, "second"=>5},
+        "3"=>{"first"=>5, "second"=>5},
+        "4"=>{"first"=>1, "second"=>1},
+        "5"=>{"first"=>1, "second"=>1},
+        "6"=>{"first"=>1, "second"=>1},
+        "7"=>{"first"=>1, "second"=>1},
+        "8"=>{"first"=>1, "second"=>1},
+        "9"=>{"first"=>1, "second"=>1},
+        "10"=>{"first"=>1, "second"=>1}
+      }
     }
 
-    14.times { game.roll 1 }
     assert_equal final_game_hash, game.game_summary
+  end
+
+  def test_bonus_rolls_add_11th_frame_in_game_summary
+    18.times { game.roll 0 }
+
+    1.times { game.roll 10 }
+    2.times { game.roll 1 }
+
+    expected_bonus_key = {
+      "first"=>1,
+      "second"=>1,
+    }
+
+    assert_equal expected_bonus_key, game.game_summary['frames']['11']
+    assert_equal 12, game.score
   end
 
   private
