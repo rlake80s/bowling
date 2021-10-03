@@ -1,6 +1,8 @@
-require 'pp'
-
 class Tenpin
+  class IllegalRoll < StandardError; end
+
+  ILLEGAL_ROLL_MSG = 'more than 10 pins rolled for frame'.freeze
+
   def initialize
     @game = [Frame.new]
     @current_frame = game.last
@@ -8,6 +10,7 @@ class Tenpin
 
   def roll(pins)
     return if game_over?
+    raise IllegalRoll.new, ILLEGAL_ROLL_MSG unless roll_legal? pins
 
     if pins == 10 && !current_frame.bonus_rolls # strike
       current_frame.first_roll = pins
@@ -96,8 +99,6 @@ class Tenpin
       next if skip_frame? frame
 
       next_game = game[i + 1]
-      next_next_game = game[i + 2]
-
       next if no_next_game? next_game
 
       if frame.first_roll == 10 # strike
@@ -105,7 +106,9 @@ class Tenpin
         if next_game.second_roll # handle chance for consecutive strikes
           bonus += next_game.second_roll
         else
+          next_next_game = game[i + 2]
           next if no_next_game? next_next_game
+
           bonus += next_next_game.first_roll
         end
       elsif frame.total == 10 # spare
@@ -133,7 +136,7 @@ class Tenpin
   end
 
   def skip_frame?(frame)
-    frame.total.nil? || frame.bonus_rolls
+    frame.first_roll.nil? || frame.bonus_rolls
   end
 
   def no_next_game?(next_game)
@@ -143,10 +146,20 @@ class Tenpin
   def should_add_bonus_rolls?
     current_frame.total == 10 && !current_frame.bonus_rolls
   end
+
+  def roll_legal?(pins)
+    return false if pins > 10
+
+    unless current_frame.bonus_rolls
+      return false if pins + current_frame.first_roll.to_i > 10
+    end
+
+    true
+  end
 end
 
 class Frame
-  def initialize(bonus_rolls: false)
+  def initialize(bonus_rolls: nil)
     @first_roll = nil
     @second_roll = nil
     @bonus_rolls = bonus_rolls
@@ -157,11 +170,7 @@ class Frame
   end
 
   def total
-    if second_roll.nil?
-      first_roll
-    else
-      first_roll + second_roll
-    end
+    first_roll.to_i + second_roll.to_i
   end
 
   attr_accessor :first_roll, :second_roll
@@ -287,6 +296,24 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     assert_equal expected_bonus_key, game.game_summary['frames']['11']
     assert_equal 12, game.score
+  end
+
+  def test_illegal_roll_error_raised_if_more_than_10_pins_rolled
+    error = assert_raises(Tenpin::IllegalRoll) do
+      1.times { game.roll 11 }
+    end
+
+    assert_equal Tenpin::ILLEGAL_ROLL_MSG, error.message
+  end
+
+  def test_illegal_roll_error_raised_if_more_than_10_pins_rolled_for_frame
+    1.times { game.roll 9 }
+
+    error = assert_raises(Tenpin::IllegalRoll) do
+      1.times { game.roll 2 }
+    end
+
+    assert_equal Tenpin::ILLEGAL_ROLL_MSG, error.message
   end
 
   private
