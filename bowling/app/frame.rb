@@ -29,6 +29,14 @@ class Frame
     }
   end
 
+  def complete?
+    first_roll && (
+      bonus_rolls == 1 ||
+      (!bonus_rolls && first_roll == 10) ||
+      second_roll
+    )
+  end
+
   attr_accessor :first_roll, :second_roll
   attr_reader :bonus_rolls
 end
