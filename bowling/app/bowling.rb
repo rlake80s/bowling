@@ -12,7 +12,7 @@ class Bowling
   end
 
   def remove_user(name:)
-    users - [name] # deletes duplicates
+    users - [name] # deletes all instances
   end
 
   def start_game

@@ -1,6 +1,4 @@
 require 'minitest/autorun'
-require 'pp'
-require 'pry'
 
 require_relative '../app/tenpin'
 require_relative '../app/user'
@@ -11,7 +9,7 @@ class TenpinTest < MiniTest::Unit::TestCase
   end
 
   def test_if_no_user_is_provided_the_default_user_is_guest
-    assert_equal({ "guest" => 0 }, game.score)
+    assert_equal({ 'guest' => 0 }, game.score)
   end
 
   def test_it_calculates_score_correctly
@@ -22,7 +20,13 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     16.times { game.roll 0 }
 
-    assert_equal({"guest" => 10 }, game.score)
+    assert_equal({ 'guest' => 10 }, game.score)
+  end
+
+  def test_a_perfect_game_is_300
+    12.times { game.roll 10 }
+
+    assert_equal({ 'guest' => 300 }, game.score)
   end
 
   def test_it_calculates_score_correctly_when_strikes_included
@@ -33,7 +37,7 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     16.times { game.roll 0 }
 
-    assert_equal({"guest" =>  16 }, game.score)
+    assert_equal({ 'guest' => 16 }, game.score)
   end
 
   def test_it_calculates_score_correctly_when_spares_included
@@ -44,7 +48,7 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     13.times { game.roll 0 }
 
-    assert_equal({"guest" => 14 }, game.score)
+    assert_equal({ 'guest' => 14 }, game.score)
   end
 
   def test_it_calculates_a_max_of_ten_frames
@@ -62,7 +66,7 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     3.times { game.roll 10 }
 
-    assert_equal({"guest" => 30}, game.score)
+    assert_equal({ 'guest' => 30 }, game.score)
   end
 
   def test_one_bonus_roll_granted_if_final_frame_is_a_spare
@@ -70,7 +74,7 @@ class TenpinTest < MiniTest::Unit::TestCase
 
     3.times { game.roll 5 }
 
-    assert_equal({"guest" => 15}, game.score)
+    assert_equal({ 'guest' => 15 }, game.score)
   end
 
   def test_it_returns_an_accurate_game_summary_as_the_game_progresses
@@ -119,20 +123,20 @@ class TenpinTest < MiniTest::Unit::TestCase
     assert_equal final_game_hash, game.summary
   end
 
-  def test_bonus_rolls_add_11th_frame_in_game_summary
+  def test_bonus_rolls_add_third_roll_for_10th_frame_to_game_summary
     18.times { game.roll 0 }
 
     1.times { game.roll 10 }
     2.times { game.roll 1 }
 
     expected_bonus_key = {
-      'first' => 1,
+      'first' => 10,
       'second' => 1,
-      'bonus' => 0
+      'third' => 1
     }
 
-    assert_equal expected_bonus_key, game.summary['guest']['frames']['11']
-    assert_equal({"guest" => 12}, game.score)
+    assert_equal expected_bonus_key, game.summary['guest']['frames']['10']
+    assert_equal({ 'guest' => 12 }, game.score)
   end
 
   def test_bonus_rolls_added_correctly_to_game_summary_if_last_three_rolls_strikes
@@ -143,11 +147,11 @@ class TenpinTest < MiniTest::Unit::TestCase
     expected_bonus_key = {
       'first' => 10,
       'second' => 10,
-      'bonus' => 0
+      'third' => 10
     }
 
-    assert_equal expected_bonus_key, game.summary['guest']['frames']['11']
-    assert_equal({"guest" => 30}, game.score)
+    assert_equal expected_bonus_key, game.summary['guest']['frames']['10']
+    assert_equal({ 'guest' => 30 }, game.score)
   end
 
   def test_illegal_roll_error_raised_if_more_than_10_pins_rolled
@@ -193,8 +197,7 @@ class TenpinTest < MiniTest::Unit::TestCase
           '7' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
           '8' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
           '9' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
-          '10' => { 'first' => nil, 'second' => nil, 'bonus' => 0 }
-        }
+          '10' => { 'first' => nil, 'second' => nil, 'bonus' => 0 } }
       },
       'Sam' =>
       { 'score' => 8,
@@ -208,9 +211,7 @@ class TenpinTest < MiniTest::Unit::TestCase
           '7' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
           '8' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
           '9' => { 'first' => nil, 'second' => nil, 'bonus' => 0 },
-          '10' => { 'first' => nil, 'second' => nil, 'bonus' => 0 }
-        }
-      }
+          '10' => { 'first' => nil, 'second' => nil, 'bonus' => 0 } } }
     }
 
     assert_equal expected_summary, game.summary
@@ -228,10 +229,10 @@ class TenpinTest < MiniTest::Unit::TestCase
     2.times { game.roll 1 }
 
     expected_summary = {
-      'Bob' =>
-      { 'score' => 30,
-        'frames' =>
-        { '1' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
+      'Bob' => {
+        'score' => 30,
+        'frames' => {
+          '1' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
           '2' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
           '3' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
           '4' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
@@ -240,8 +241,9 @@ class TenpinTest < MiniTest::Unit::TestCase
           '7' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
           '8' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
           '9' => { 'first' => 0, 'second' => 0, 'bonus' => 0 },
-          '10' => { 'first' => 10, 'second' => nil, 'bonus' => 0 },
-          '11' => { 'first' => 10, 'second' => 10, 'bonus' => 0 } } },
+          '10' => { 'first' => 10, 'second' => 10, 'third' => 10 }
+        }
+      },
       'Sam' => {
         'score' => 2,
         'frames' =>
