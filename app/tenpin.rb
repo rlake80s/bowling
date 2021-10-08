@@ -2,9 +2,6 @@ require_relative 'frame'
 require_relative 'game_summary'
 require_relative 'user'
 
-require 'pry'
-require 'pry-nav'
-
 class Tenpin
   class IllegalRoll < StandardError; end
   class GameOver < StandardError; end
